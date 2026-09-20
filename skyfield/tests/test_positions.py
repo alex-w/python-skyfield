@@ -207,7 +207,7 @@ def test_velocity_in_ITRF_to_GCRS2():
     relative_error = (length_of(actual_motion - predicted_motion)
                       / length_of(actual_motion))
 
-    acceptable_error = 1e-11
+    acceptable_error = 1.8e-11
     assert relative_error < acceptable_error
 
 def test_light_time_method():

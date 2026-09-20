@@ -110,17 +110,12 @@ def test_appendix_c_satellite():
 
     rTEME, vTEME, error = sat._position_and_velocity_TEME_km(t)
 
-    # TODO: This used to be accurate to within 1e-8 but lost precision
-    # with the move to SGP4 2.0.  Is the difference an underlying change
-    # in the algorithm and its results?  Or something else?
-    epsilon = 1e-4
+    epsilon = 1e-8
     assert abs(-9060.47373569 - rTEME[0]) < epsilon
     assert abs(4658.70952502 - rTEME[1]) < epsilon
     assert abs(813.68673153 - rTEME[2]) < epsilon
 
-    # TODO: Similar to the above, this used to be 1e-9.  Then the Time
-    # object started storing UTC as seconds, and it got worse.
-    epsilon = 5e-8
+    epsilon = 1e-9
     assert abs(-2.232832783 - vTEME[0]) < epsilon
     assert abs(-4.110453490 - vTEME[1]) < epsilon
     assert abs(-3.157345433 - vTEME[2]) < epsilon

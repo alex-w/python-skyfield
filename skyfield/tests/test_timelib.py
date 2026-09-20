@@ -197,6 +197,9 @@ def test_strftime_with_microseconds():
     assert t.tt_strftime('%Y %S %f') == ['1980 00 000000'] * 2
     assert t.tdb_strftime('%Y %S %f') == ['1980 59 998471'] * 2
 
+    t = ts.utc(2023, 8, 10, 6, 21, 45.9)
+    assert t.utc_strftime('%Y %S %f') == '2023 45 900000'
+
 def test_tai_fraction_loses_no_precision(ts):
     t = ts.tai_jd(2459008.0, 0.0123456789)
     assert t.whole == 2459008.0

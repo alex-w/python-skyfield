@@ -1,0 +1,49 @@
+
+## 2026 September 20 Sunday
+
+I am nearly done improving `ts.utc()` so that any fraction attached to
+its `day` argument is handled with the same caution as fractions
+attached to its `second`, which should fix this issue:
+
+https://github.com/skyfielders/python-skyfield/issues/1141
+
+Having nearly worked out the kinks, I was surprised to find that I’d
+broken the test `test_velocity_in_ITRF_to_GCRS2()`.  With the old logic,
+it receives a time with these attributes, and succeeds:
+
+    .whole          [2459047. 2459047.]
+    .tai_fraction   [0.8691782407407408, 0.8691898148148148]
+    .tt_fraction    [0.8695507407407408, 0.8695623148148148]
+
+But the new code produces these values and makes it fail:
+
+    .whole          [2459047. 2459047.]
+    .tai_fraction   [0.8691782407407407, 0.8691898148148148]
+    .tt_fraction    [0.8695507407407407, 0.8695623148148148]
+
+But does this really mean that the new value is worse?  The test is a
+finicky one, testing whether the velocity matrix returned from the
+no-longer-used routine `ITRF_to_GCRS2()` really predicts how far a
+position will spin around the frame’s axis in 1 second.  Does the test’s
+failure really mean that the newly rewritten `Timescale._utc()` logic
+needs to be tightened up?  Or was it mere coincidence that the old logic
+produced a final decimal place that made the test slightly tighter than
+otherwise?
+
+Let’s instead judge the new decimal on its own merits.  The time 8 AM is
+actually 20h because Julian dates start at noon; and 37 leap seconds had
+accumulated by 2020.  So we can ask, what fraction of a day would the
+time 20:51:37 AM ideally produce?  Let’s use `dc` to compute it without
+the limited precision of machine floating point:
+
+99k 20 24 / p 51 1440 / p 37 86400 / p + + p
+
+The high-precision result is:
+
+.86917824074074074074074074074074074074074074074074074074074074074074\
+0740740740740740740740740740739
+
+The `407` looks to be a true repeating decimal.  So the old logic that
+produced an `8` at the end was flawed, because the final digit should
+have rounded down, not up; and so it’s just a coincidence that the old
+logic happened to make this test happier.  I will relax its bounds.

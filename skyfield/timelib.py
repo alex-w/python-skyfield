@@ -5,7 +5,7 @@ import sys
 from collections import namedtuple
 from datetime import date, datetime, timedelta
 from numpy import (
-    array, concatenate, cos, float64, int64, isnan, isinf, linspace,
+    array, concatenate, cos, float64, floor, int64, isnan, isinf, linspace,
     nan, ndarray, nonzero, pi, rollaxis, searchsorted, sin, where, zeros_like,
 
 )
@@ -181,25 +181,44 @@ class Timescale(object):
     def _utc(self, tup):
         # Build a Time from a UTC tuple, carefully preserving its exact
         # second number in the Time's hidden TAI seconds field.
+
         year, month, day, hour, minute, second = tup
         cutoff = self.julian_calendar_cutoff
 
-        # Figure out exactly the TAI second number.
-        seconds = (julian_day(year, month, day, cutoff) - 0.5) * DAY_S
-        seconds, sfr = divmod(seconds, 1.0)  # in case there were any fractions
-        seconds += interp(seconds, self._leap_utc, self._leap_offsets)
-        more = hour * 3600.0 + minute * 60.0 + second
-        seconds2, sfr = divmod(sfr + more, 1.0)
-        seconds += seconds2
+        # Carefully preserve the day `fraction` before losing precision
+        # by building the Julian day number.
+        whole = floor(day)
+        fraction = day - whole - 0.5
+        whole = julian_day(year, month, whole, cutoff)
 
-        # For the other timescales, use the usual Julian date + fraction.
-        whole, fraction = divmod(seconds, DAY_S)
-        fraction += sfr
-        fraction /= DAY_S
+        # Use "Julian seconds" to index into the leap second table.
+        jseconds = whole * DAY_S
+        leap_seconds = interp(jseconds, self._leap_utc, self._leap_offsets)
+
+        # For accurate reconstruction of UTC later, save the time as TAI
+        # seconds plus the exact seconds fraction, in a secret tuple.
+        sfloor = floor(second)
+        sfraction = second - sfloor
+        seconds = sfloor + leap_seconds + minute * 60.0 + hour * 3600.0
+        seconds2 = seconds + fraction * DAY_S
+
+        sfloor2 = floor(seconds2)  # in case minutes or hours had fractions
+        sfraction2 = seconds2 - sfloor2
+        tai_seconds = (
+            sfloor2 + whole * DAY_S,
+            sfraction + sfraction2,
+        )
+
+        # And save the time more conventionally, counted in days.
+        fraction += (seconds + sfraction) / DAY_S
+        whole2 = floor(fraction)
+        whole += whole2
+        fraction -= whole2
 
         t = Time(self, whole, fraction + tt_minus_tai)
         t.tai_fraction = fraction
-        t._tai_seconds = seconds, sfr
+        t._tai_seconds = tai_seconds
+
         return t
 
     def _jd(self, year, month, day, hour, minute, second):
